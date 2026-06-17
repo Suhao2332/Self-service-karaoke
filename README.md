@@ -1,6 +1,6 @@
 # MV卡拉OK制作器
 
-一个基于Python FastAPI的Web应用，可以将普通MV视频转换为带有卡拉OK字幕效果的视频。
+一个基于Python PyQt6的桌面应用，可以将普通MV视频转换为带有卡拉OK字幕效果的视频。
 
 ## 项目结构
 
@@ -9,19 +9,23 @@ mv-karaoke-maker/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py
-│   │   ├── main.py              # FastAPI入口
-│   │   ├── audio_processor.py   # 音频提取
-│   │   ├── song_identifier.py   # 歌曲识别
-│   │   ├── lyrics_fetcher.py    # 歌词获取
-│   │   ├── timeline_aligner.py  # 时间轴对齐
-│   │   └── karaoke_renderer.py  # 卡拉OK渲染
+│   │   ├── main.py              # 桌面应用入口
+│   │   ├── ui/
+│   │   │   ├── __init__.py
+│   │   │   └── main_window.py   # 主窗口
+│   │   ├── core/
+│   │   │   ├── __init__.py
+│   │   │   ├── audio_processor.py   # 音频提取
+│   │   │   ├── song_identifier.py   # 歌曲识别
+│   │   │   ├── lyrics_fetcher.py    # 歌词获取（集成LDDC）
+│   │   │   ├── timeline_aligner.py  # 时间轴对齐
+│   │   │   └── karaoke_renderer.py  # 卡拉OK渲染
+│   │   └── utils/
+│   │       ├── __init__.py
+│   │       └── ffmpeg_helper.py
 │   ├── uploads/                 # 上传文件目录
 │   ├── outputs/                 # 输出文件目录
 │   └── requirements.txt
-├── frontend/
-│   ├── index.html
-│   ├── style.css
-│   └── app.js
 └── README.md
 ```
 
@@ -29,10 +33,11 @@ mv-karaoke-maker/
 
 1. **视频上传**：用户上传MV视频文件
 2. **音频提取**：从视频中提取音频（使用FFmpeg）
-3. **歌曲识别**：通过音频指纹识别歌曲信息（需配置API）
-4. **歌词获取**：从网易云音乐等平台获取LRC格式歌词
+3. **歌曲识别**：通过Shazam API在线识别歌曲信息
+4. **歌词获取**：从网易云音乐等平台获取LRC格式歌词（集成LDDC项目）
 5. **时间轴对齐**：将歌词时间轴与音频节拍对齐
-6. **卡拉OK渲染**：生成带有逐字高亮效果的卡拉OK字幕视频
+6. **卡拉OK渲染**：生成带有逐字高亮效果的卡拉OK字幕视频（ASS格式）
+7. **手动调整**：支持手动修正歌曲信息和歌词时间轴
 
 ## 安装与运行
 
@@ -49,21 +54,18 @@ cd backend
 pip install -r requirements.txt
 ```
 
-### 启动服务
+### 启动应用
 
 ```bash
-uvicorn app.main:app --reload
+python -m app.main
 ```
-
-### 访问界面
-
-打开浏览器访问 `http://localhost:8000`
 
 ## 技术栈
 
-- **后端**：FastAPI + Python
+- **桌面框架**：PyQt6
 - **音频处理**：librosa + FFmpeg
-- **前端**：原生HTML/CSS/JavaScript
+- **歌曲识别**：Shazam API（在线）
+- **歌词获取**：网易云音乐API（集成LDDC）
 - **字幕格式**：ASS（Advanced SubStation Alpha）
 
 ## 注意事项
@@ -75,11 +77,10 @@ uvicorn app.main:app --reload
 
 ## 后续优化方向
 
-1. **手动调整功能**：允许用户手动修正歌曲信息和歌词时间轴
-2. **更多歌词格式**：支持SRT、SSA等格式
-3. **多语言支持**：支持中英文双语歌词
-4. **批量处理**：支持多个视频批量处理
-5. **GPU加速**：使用CUDA加速视频渲染
+1. **更多歌词格式**：支持SRT、SSA等格式
+2. **多语言支持**：支持中英文双语歌词
+3. **批量处理**：支持多个视频批量处理
+4. **GPU加速**：使用CUDA加速视频渲染
 
 ## 许可证
 
