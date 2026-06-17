@@ -231,3 +231,285 @@ class MainWindow(QMainWindow):
         else:
             self.video_widget.play()
             self.play_btn.setText("暂停")
+"""
+主窗口UI模块
+"""
+from PyQt6.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QLabel, QFileDialog, QTextEdit,
+    QProgressBar, QMessageBox, QLineEdit, QGroupBox,
+    QFormLayout, QSpinBox, QDoubleSpinBox
+)
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
+import os
+
+class WorkerThread(QThread):
+    """工作线程，避免UI卡顿"""
+    progress = pyqtSignal(int)
+    status = pyqtSignal(str)
+    finished = pyqtSignal(object)
+    error = pyqtSignal(str)
+
+    def __init__(self, target, args=()):
+        super().__init__()
+        self.target = target
+        self.args = args
+
+    def run(self):
+        try:
+            result = self.target(*self.args)
+            self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+
+class MainWindow(QMainWindow):
+    """主窗口"""
+    
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("MV卡拉OK制作器")
+        self.setMinimumSize(800, 600)
+        
+        # 文件路径
+        self.video_path = ""
+        self.audio_path = ""
+        self.output_path = ""
+        
+        # 初始化UI
+        self._init_ui()
+    
+    def _init_ui(self):
+        """初始化UI组件"""
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
+        main_layout = QVBoxLayout(central_widget)
+        
+        # 文件选择区域
+        file_group = QGroupBox("文件选择")
+        file_layout = QVBoxLayout(file_group)
+        
+        # 视频文件选择
+        video_layout = QHBoxLayout()
+        self.video_label = QLabel("未选择视频文件")
+        self.video_label.setStyleSheet("color: gray;")
+        select_video_btn = QPushButton("选择视频文件")
+        select_video_btn.clicked.connect(self._select_video)
+        video_layout.addWidget(self.video_label, 1)
+        video_layout.addWidget(select_video_btn)
+        file_layout.addLayout(video_layout)
+        
+        # 输出路径选择
+        output_layout = QHBoxLayout()
+        self.output_label = QLabel("输出路径（可选）")
+        self.output_label.setStyleSheet("color: gray;")
+        select_output_btn = QPushButton("选择输出路径")
+        select_output_btn.clicked.connect(self._select_output)
+        output_layout.addWidget(self.output_label, 1)
+        output_layout.addWidget(select_output_btn)
+        file_layout.addLayout(output_layout)
+        
+        main_layout.addWidget(file_group)
+        
+        # 操作按钮区域
+        action_group = QGroupBox("操作")
+        action_layout = QVBoxLayout(action_group)
+        
+        self.extract_audio_btn = QPushButton("1. 提取音频")
+        self.extract_audio_btn.clicked.connect(self._extract_audio)
+        self.extract_audio_btn.setEnabled(False)
+        action_layout.addWidget(self.extract_audio_btn)
+        
+        self.identify_song_btn = QPushButton("2. 识别歌曲")
+        self.identify_song_btn.clicked.connect(self._identify_song)
+        self.identify_song_btn.setEnabled(False)
+        action_layout.addWidget(self.identify_song_btn)
+        
+        self.fetch_lyrics_btn = QPushButton("3. 获取歌词")
+        self.fetch_lyrics_btn.clicked.connect(self._fetch_lyrics)
+        self.fetch_lyrics_btn.setEnabled(False)
+        action_layout.addWidget(self.fetch_lyrics_btn)
+        
+        self.render_btn = QPushButton("4. 渲染卡拉OK")
+        self.render_btn.clicked.connect(self._render_karaoke)
+        self.render_btn.setEnabled(False)
+        action_layout.addWidget(self.render_btn)
+        
+        main_layout.addWidget(action_group)
+        
+        # 进度条
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        main_layout.addWidget(self.progress_bar)
+        
+        # 状态信息
+        self.status_text = QTextEdit()
+        self.status_text.setReadOnly(True)
+        self.status_text.setMaximumHeight(200)
+        main_layout.addWidget(self.status_text)
+        
+        # 手动调整区域
+        adjust_group = QGroupBox("手动调整")
+        adjust_layout = QFormLayout(adjust_group)
+        
+        self.time_offset_spin = QDoubleSpinBox()
+        self.time_offset_spin.setRange(-10.0, 10.0)
+        self.time_offset_spin.setSingleStep(0.1)
+        self.time_offset_spin.setValue(0.0)
+        self.time_offset_spin.setSuffix(" 秒")
+        adjust_layout.addRow("时间偏移:", self.time_offset_spin)
+        
+        apply_offset_btn = QPushButton("应用偏移")
+        apply_offset_btn.clicked.connect(self._apply_time_offset)
+        adjust_layout.addRow("", apply_offset_btn)
+        
+        main_layout.addWidget(adjust_group)
+    
+    def _select_video(self):
+        """选择视频文件"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "选择视频文件", "",
+            "视频文件 (*.mp4 *.avi *.mkv *.mov *.flv);;所有文件 (*.*)"
+        )
+        
+        if file_path:
+            self.video_path = file_path
+            self.video_label.setText(os.path.basename(file_path))
+            self.video_label.setStyleSheet("color: black;")
+            self.extract_audio_btn.setEnabled(True)
+            self._log(f"已选择视频: {file_path}")
+    
+    def _select_output(self):
+        """选择输出路径"""
+        dir_path = QFileDialog.getExistingDirectory(
+            self, "选择输出目录"
+        )
+        
+        if dir_path:
+            self.output_path = dir_path
+            self.output_label.setText(dir_path)
+            self.output_label.setStyleSheet("color: black;")
+            self._log(f"输出目录: {dir_path}")
+    
+    def _extract_audio(self):
+        """提取音频"""
+        if not self.video_path:
+            QMessageBox.warning(self, "警告", "请先选择视频文件")
+            return
+        
+        self._set_processing_state(True)
+        self._log("开始提取音频...")
+        
+        # 创建工作线程
+        from backend.app.core.audio_processor import extract_audio
+        self.worker = WorkerThread(extract_audio, (self.video_path,))
+        self.worker.finished.connect(self._on_audio_extracted)
+        self.worker.error.connect(self._on_error)
+        self.worker.start()
+    
+    def _on_audio_extracted(self, audio_path):
+        """音频提取完成回调"""
+        self.audio_path = audio_path
+        self._log(f"音频提取完成: {audio_path}")
+        self.identify_song_btn.setEnabled(True)
+        self._set_processing_state(False)
+    
+    def _identify_song(self):
+        """识别歌曲"""
+        if not self.audio_path:
+            QMessageBox.warning(self, "警告", "请先提取音频")
+            return
+        
+        self._set_processing_state(True)
+        self._log("开始识别歌曲...")
+        
+        from backend.app.core.song_identifier import SongIdentifier
+        identifier = SongIdentifier()
+        self.worker = WorkerThread(identifier.identify_from_audio, (self.audio_path,))
+        self.worker.finished.connect(self._on_song_identified)
+        self.worker.error.connect(self._on_error)
+        self.worker.start()
+    
+    def _on_song_identified(self, song_info):
+        """歌曲识别完成回调"""
+        if song_info:
+            self._log(f"识别结果: {song_info.get('title', '未知')} - "
+                     f"{song_info.get('artist', '未知')}")
+            self.fetch_lyrics_btn.setEnabled(True)
+        else:
+            self._log("歌曲识别失败，请手动输入歌曲信息")
+        self._set_processing_state(False)
+    
+    def _fetch_lyrics(self):
+        """获取歌词"""
+        self._set_processing_state(True)
+        self._log("开始获取歌词...")
+        
+        from backend.app.core.lyrics_fetcher import LyricsFetcher
+        fetcher = LyricsFetcher()
+        # 这里简化处理，实际需要用户选择歌曲
+        self.worker = WorkerThread(fetcher.search_song, ("",))
+        self.worker.finished.connect(self._on_lyrics_fetched)
+        self.worker.error.connect(self._on_error)
+        self.worker.start()
+    
+    def _on_lyrics_fetched(self, lyrics):
+        """歌词获取完成回调"""
+        if lyrics:
+            self._log(f"获取到 {len(lyrics)} 条歌词")
+            self.render_btn.setEnabled(True)
+        else:
+            self._log("未获取到歌词")
+        self._set_processing_state(False)
+    
+    def _render_karaoke(self):
+        """渲染卡拉OK"""
+        if not self.video_path:
+            QMessageBox.warning(self, "警告", "请先选择视频文件")
+            return
+        
+        self._set_processing_state(True)
+        self._log("开始渲染卡拉OK视频...")
+        
+        from backend.app.core.karaoke_renderer import KaraokeRenderer
+        renderer = KaraokeRenderer()
+        # 简化处理，实际需要传入歌词数据
+        self.worker = WorkerThread(renderer.render_karaoke, (self.video_path, []))
+        self.worker.finished.connect(self._on_render_finished)
+        self.worker.error.connect(self._on_error)
+        self.worker.start()
+    
+    def _on_render_finished(self, output_path):
+        """渲染完成回调"""
+        self._log(f"卡拉OK视频已生成: {output_path}")
+        QMessageBox.information(self, "完成", f"视频已保存到:\n{output_path}")
+        self._set_processing_state(False)
+    
+    def _apply_time_offset(self):
+        """应用时间偏移"""
+        offset = self.time_offset_spin.value()
+        self._log(f"应用时间偏移: {offset} 秒")
+        # 实际实现需要找到ASS文件路径
+        QMessageBox.information(self, "提示", "时间偏移功能需要先渲染字幕文件")
+    
+    def _on_error(self, error_msg):
+        """错误处理"""
+        self._log(f"错误: {error_msg}")
+        QMessageBox.critical(self, "错误", error_msg)
+        self._set_processing_state(False)
+    
+    def _set_processing_state(self, processing: bool):
+        """设置处理状态"""
+        self.progress_bar.setVisible(processing)
+        self.progress_bar.setRange(0, 0)  # 不确定进度
+        self.extract_audio_btn.setEnabled(not processing)
+        self.identify_song_btn.setEnabled(not processing)
+        self.fetch_lyrics_btn.setEnabled(not processing)
+        self.render_btn.setEnabled(not processing)
+    
+    def _log(self, message: str):
+        """记录日志"""
+        self.status_text.append(message)
+        # 自动滚动到底部
+        scrollbar = self.status_text.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
