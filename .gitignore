@@ -1,0 +1,36 @@
+# ── Python ──
+__pycache__/
+*.pyc
+*.egg-info/
+
+# ── 虚拟环境 ──
+venv/
+.venv/
+
+# ── 构建产物 ──
+dist/
+build/
+*.spec
+
+# ── 环境变量（含 API Key）──
+.env
+
+# ── AI 助手会话数据 ──
+.reasonix/
+reasonix.toml
+.aider*
+
+# ── 第三方参考库（非本项目代码）──
+参考库/
+
+# ── 测试生成产物（视频/音频/ASS）──
+backend/tests/output/
+backend/tests/tests/output/
+
+# ── IDE ──
+.vscode/
+.idea/
+
+# ── 系统文件 ──
+.DS_Store
+Thumbs.db

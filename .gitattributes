@@ -1,0 +1,20 @@
+# 所有文本文件统一 LF 换行
+* text=auto
+
+# Python 源码强制 LF
+*.py text eol=lf
+
+# Markdown / 配置 LF
+*.md text eol=lf
+*.txt text eol=lf
+*.toml text eol=lf
+*.cfg text eol=lf
+
+# 二进制文件保持原样
+*.mp4 binary
+*.mp3 binary
+*.wav binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.qm binary
