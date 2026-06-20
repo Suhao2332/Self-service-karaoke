@@ -29,7 +29,7 @@ from PyInstaller.__main__ import run as pyi_run
 sys.argv = [
     "pyinstaller",
     "--onedir",
-    "--name", "MV-Karaoke-Maker",
+    "--name", "Self-service-karaoke",
     "--distpath", "./dist",
     "--workpath", "./build",
     "--add-data", "backend/app;app",

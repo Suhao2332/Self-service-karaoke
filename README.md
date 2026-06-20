@@ -1,11 +1,11 @@
-# MV卡拉OK制作器
+# 自助卡拉OK制作器
 
 一个基于Python PyQt6的桌面应用，可以将普通MV视频转换为带有卡拉OK字幕效果的视频。
 
 ## 项目结构
 
 ```
-mv-karaoke-maker/
+self-service-karaoke/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py

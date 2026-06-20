@@ -248,7 +248,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("MV卡拉OK制作器")
+        self.setWindowTitle("自助卡拉OK制作器")
         self.setMinimumSize(1200, 720)
         self.resize(1200, 720)
         self.setStyleSheet("""
@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(14, 10, 14, 10)
 
         # 标题
-        title = QLabel("🎤 MV卡拉OK制作器")
+        title = QLabel("🎤 自助卡拉OK制作器")
         title.setStyleSheet("font-size: 20px; font-weight: bold; color: #2c3e50;")
         main_layout.addWidget(title)
 

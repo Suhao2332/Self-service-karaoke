@@ -1,5 +1,5 @@
 """
-MV卡拉OK制作器 - 桌面应用入口
+自助卡拉OK制作器 - 桌面应用入口
 """
 import sys
 import os
@@ -47,7 +47,7 @@ def main():
     )
 
     app = QApplication(sys.argv)
-    app.setApplicationName("MV卡拉OK制作器")
+    app.setApplicationName("自助卡拉OK制作器")
 
     # 设置样式
     app.setStyle("Fusion")
