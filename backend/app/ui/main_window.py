@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QColor, QPixmap, QFontInfo
 from typing import Optional
 import os
+import sys
 import tempfile
 
 from utils.ffmpeg_helper import check_ffmpeg
@@ -271,17 +272,61 @@ class MainWindow(QMainWindow):
         self.lyrics_type_prefs = None
         self._preview_frame_path: Optional[str] = None
 
+        # 配置文件（exe 同目录）
+        import json as _json
+        if getattr(sys, 'frozen', False):
+            self._config_dir = os.path.dirname(sys.executable)
+        else:
+            self._config_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self._config_path = os.path.join(self._config_dir, "config.json")
+        self._config = self._load_config()
+
         from core.karaoke_renderer import KaraokeStyleConfig
         self.style_config = KaraokeStyleConfig()
 
         self._init_ui()
         self._check_ffmpeg()
 
+    # ── 配置读写 ──
+
+    def _load_config(self):
+        try:
+            if os.path.exists(self._config_path):
+                with open(self._config_path, "r", encoding="utf-8") as f:
+                    import json
+                    return json.load(f)
+        except Exception:
+            pass
+        return {}
+
+    def _save_config(self):
+        try:
+            os.makedirs(self._config_dir, exist_ok=True)
+            with open(self._config_path, "w", encoding="utf-8") as f:
+                import json
+                json.dump(self._config, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
     def _check_ffmpeg(self):
+        # 如果配置中已记录"无 FFmpeg 已提示"，不再弹窗
+        if self._config.get("ffmpeg_missing_acknowledged"):
+            if not check_ffmpeg():
+                self._log("⚠️ FFmpeg未安装（已提示过），音视频功能不可用")
+            return
+
         if not check_ffmpeg():
-            QMessageBox.critical(self, "环境检查失败",
-                "未检测到FFmpeg，请确保FFmpeg已安装并添加到系统PATH中。\n下载: https://ffmpeg.org/download.html")
-            self._log("错误: FFmpeg未安装")
+            btn = QMessageBox.critical(
+                self, "环境检查 — FFmpeg 未安装",
+                "未检测到 FFmpeg，音视频处理功能将不可用。\n\n"
+                "下载地址：https://ffmpeg.org/download.html\n"
+                "（下载后请将 ffmpeg.exe 所在目录添加到系统 PATH）\n\n"
+                "安装完成后重启本软件即可。",
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Ignore
+            )
+            self._config["ffmpeg_missing_acknowledged"] = True
+            self._save_config()
+            self._log("⚠️ FFmpeg未安装 — 音视频功能不可用")
 
     # ═══════════════════════════════════════════════════════════════
     # UI 构建
@@ -380,6 +425,10 @@ class MainWindow(QMainWindow):
         obtn.clicked.connect(self._select_output_dir)
         or_.addWidget(obtn)
         ol.addLayout(or_)
+        self.save_ass_check = QCheckBox("输出歌词文件 (.ass)")
+        self.save_ass_check.setChecked(False)
+        self.save_ass_check.setStyleSheet("color: #888; font-size: 12px;")
+        ol.addWidget(self.save_ass_check)
         clr = QPushButton("↩ 清除（使用视频目录）")
         clr.setStyleSheet("QPushButton { background: none; color: #888; border: 1px solid #ccc; padding: 4px 10px; border-radius: 4px; font-size: 11px; }"
                            "QPushButton:hover { color: #e74c3c; border-color: #e74c3c; }")
@@ -1200,23 +1249,29 @@ class MainWindow(QMainWindow):
         self._log(f"✅ 渲染完成! ({fs/1024/1024:.1f} MB)")
         QMessageBox.information(self, "完成",
             f"🎉 视频渲染完成!\n\n{output_path}\n\n{fs/1024/1024:.1f} MB")
+        # 清理 ASS 文件（除非用户勾选保留）
+        if (hasattr(self, 'save_ass_check') and not self.save_ass_check.isChecked()
+                and self.karaoke_renderer):
+            self.karaoke_renderer.clear_state()
+        elif self.karaoke_renderer and self.karaoke_renderer.last_ass_path:
+            self._log(f"歌词文件已保存: {self.karaoke_renderer.last_ass_path}")
+
         self.step_indicator.set_step(5)
         self._set_processing_state(False)
 
     def _detect_beats_and_align(self, audio_path, lyrics):
         try:
             import librosa
-            self._log("正在检测音频节拍...")
+            import numpy as np
+            self._log("正在检测音频节拍 (librosa)...")
             y, sr = librosa.load(audio_path, sr=22050, duration=600)
             tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
             beat_times = librosa.frames_to_time(beat_frames, sr=sr).tolist()
             if not beat_times:
                 return lyrics
+            self._log(f"节拍检测完成: {len(beat_times)} 拍, ~{float(tempo):.0f} BPM")
             from core.timeline_aligner import TimelineAligner
             return TimelineAligner().align_lyrics(lyrics, beat_times)
-        except ImportError:
-            self._log("librosa未安装，跳过节拍检测")
-            return lyrics
         except Exception as e:
             self._log(f"节拍检测失败: {e}")
             return lyrics

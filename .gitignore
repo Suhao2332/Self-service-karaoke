@@ -11,6 +11,10 @@ venv/
 dist/
 build/
 *.spec
+build_log.txt
+
+# ── 废弃文件 ──
+backend/stubs/
 
 # ── 环境变量（含 API Key）──
 .env

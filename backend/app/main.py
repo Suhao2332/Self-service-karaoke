@@ -7,8 +7,22 @@ import traceback
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 
-# 添加当前目录到系统路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# 添加当前目录到系统路径（兼容 PyInstaller 打包）
+if getattr(sys, 'frozen', False):
+    # 打包后 app 目录在 _MEIPASS 下多一层
+    sys.path.insert(0, os.path.join(sys._MEIPASS, 'app'))
+else:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# PyInstaller 静态分析：顶层显式导入确保延迟依赖被打包
+try:
+    import librosa          # noqa: F401  节拍检测
+except ImportError:
+    pass
+try:
+    import soundfile        # noqa: F401  WAV 读取
+except ImportError:
+    pass
 
 from ui.main_window import MainWindow
 
